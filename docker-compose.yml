@@ -1,0 +1,18 @@
+services:
+  ikea-sniper:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      LOCATION: ${LOCATION}
+      SEARCH_TERMS: ${SEARCH_TERMS}
+      CHECK_INTERVAL_SECONDS: ${CHECK_INTERVAL_SECONDS:-300}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    volumes:
+      - ikea-sniper-status:/app/data/status
+      - ikea-sniper-logs:/app/data/logs
+
+volumes:
+  ikea-sniper-status:
+  ikea-sniper-logs:

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ikea-sniper"
+version = "0.1.0"
+description = "IKEA Second-Hand watcher with Telegram notifications"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.44,<2",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8,<9",
+]
+
+[project.scripts]
+ikea-sniper = "ikea_sniper.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
