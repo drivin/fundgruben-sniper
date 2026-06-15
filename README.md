@@ -135,8 +135,9 @@ ghcr.io/drivin/fundgruben-sniper
 Published platforms:
 
 - `linux/amd64`
-- `linux/arm/v7`
 - `linux/arm64`
+
+`linux/arm/v7` is not published because the Playwright Python package used by this project does not provide a compatible distribution for that platform.
 
 ## Tests
 
