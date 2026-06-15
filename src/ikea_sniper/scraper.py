@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from logging import Logger
 from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from ikea_sniper.errors import IkeaFetchError, ScrapingError
 
@@ -12,6 +13,7 @@ PRODUCT_ID_PATTERN = re.compile(r"#/[^/]+/(?P<product_id>\d+)(?:$|[/?#])")
 SCRAPE_TIMEOUT_MS = 30_000
 NETWORK_IDLE_TIMEOUT_MS = 10_000
 DETAIL_READY_TIMEOUT_MS = 10_000
+IKEA_SECOND_HAND_PAGE_URL = "https://www.ikea.com/de/de/second-hand/buy-from-ikea/"
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,7 @@ class ProductListItem:
     title: str
     price: str
     link: str
+    list_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -53,7 +56,7 @@ def scrape_product_list(target_url: str, location: str) -> list[ProductListItem]
             try:
                 page = browser.new_page()
                 _open_page(page, target_url, PlaywrightTimeoutError)
-                return _extract_items_from_page(page, location)
+                return _extract_items_from_page(page, location, target_url)
             finally:
                 browser.close()
     except ScrapingError:
@@ -82,7 +85,7 @@ def scrape_products_with_details(
             try:
                 page = browser.new_page()
                 _open_page(page, target_url, PlaywrightTimeoutError)
-                list_items = _extract_items_from_page(page, location)
+                list_items = _extract_items_from_page(page, location, target_url)
 
                 products = []
                 for item in list_items:
@@ -136,7 +139,11 @@ def _open_page(page: Any, url: str, playwright_timeout_error: type[Exception]) -
         pass
 
 
-def _extract_items_from_page(page: Any, location: str) -> list[ProductListItem]:
+def _extract_items_from_page(
+    page: Any,
+    location: str,
+    target_url: str,
+) -> list[ProductListItem]:
     try:
         page.wait_for_function(
             """
@@ -152,6 +159,232 @@ def _extract_items_from_page(page: Any, location: str) -> list[ProductListItem]:
             "Keine erwartbaren Artikellinks in der IKEA-Listenansicht gefunden."
         ) from error
 
+    api_items = _extract_items_from_grouped_search_api(page, location, target_url)
+    if api_items:
+        return api_items
+
+    return _extract_items_from_dom(page, location)
+
+
+def _extract_items_from_grouped_search_api(
+    page: Any,
+    location: str,
+    target_url: str,
+) -> list[ProductListItem]:
+    search_url = _find_grouped_search_url(page)
+    if not search_url:
+        return []
+
+    try:
+        first_payload = _get_json(page, _build_api_page_url(search_url, 0))
+        total_pages = int(first_payload.get("totalPages", 1))
+        items = _items_from_grouped_search_payload(
+            first_payload,
+            location,
+            target_url,
+        )
+
+        for page_number in range(1, total_pages):
+            payload = _get_json(page, _build_api_page_url(search_url, page_number))
+            items.extend(
+                _items_from_grouped_search_payload(
+                    payload,
+                    location,
+                    target_url,
+                )
+            )
+
+        return _deduplicate_items(items)
+    except Exception:
+        return []
+
+
+def _find_grouped_search_url(page: Any) -> str:
+    return str(
+        page.evaluate(
+            """
+            () => performance
+                .getEntriesByType('resource')
+                .map((entry) => entry.name)
+                .find((url) => url.includes('/circular/circular-asis/offers/grouped/search?'))
+                || ''
+            """
+        )
+    )
+
+
+def _get_json(page: Any, url: str) -> dict[str, Any]:
+    response = page.request.get(url)
+    if not response.ok:
+        raise ScrapingError(f"IKEA-API antwortete mit HTTP {response.status}: {url}")
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ScrapingError(f"IKEA-API lieferte kein JSON-Objekt: {url}")
+    return payload
+
+
+def _build_api_page_url(search_url: str, page_number: int) -> str:
+    parsed_url = urlparse(search_url)
+    query = parse_qs(parsed_url.query)
+    query["page"] = [str(page_number)]
+    return urlunparse(
+        parsed_url._replace(
+            query=urlencode(query, doseq=True),
+        )
+    )
+
+
+def _items_from_grouped_search_payload(
+    payload: dict[str, Any],
+    location: str,
+    target_url: str,
+) -> list[ProductListItem]:
+    content = payload.get("content")
+    if not isinstance(content, list):
+        return []
+
+    items = []
+    for group in content:
+        if not isinstance(group, dict):
+            continue
+
+        product_id = _first_offer_number(group)
+        title = _normalize_text(str(group.get("title", "")))
+        price = _format_group_price(group)
+        link = _build_product_link(target_url, location, product_id)
+        list_text = _api_group_search_text(group, price, link)
+
+        item = {
+            "title": title,
+            "price": price,
+            "link": link,
+        }
+        if not product_id or not _has_required_fields(item):
+            continue
+
+        items.append(
+            ProductListItem(
+                product_id=product_id,
+                title=title,
+                price=price,
+                link=link,
+                list_text=list_text,
+            )
+        )
+
+    return items
+
+
+def _first_offer_number(group: dict[str, Any]) -> str:
+    offers = group.get("offers")
+    if not isinstance(offers, list):
+        return ""
+
+    for offer in offers:
+        if not isinstance(offer, dict):
+            continue
+        offer_number = str(offer.get("offerNumber", "")).strip()
+        if offer_number:
+            return offer_number
+
+    return ""
+
+
+def _format_group_price(group: dict[str, Any]) -> str:
+    currency = str(group.get("currency", "EUR")).strip() or "EUR"
+    min_price = _number_or_none(group.get("minPrice"))
+    max_price = _number_or_none(group.get("maxPrice"))
+
+    if min_price is None:
+        min_price = _first_offer_price(group)
+    if max_price is None:
+        max_price = min_price
+
+    if min_price is None:
+        return ""
+
+    formatted_min = _format_price(min_price, currency)
+    if max_price is None or min_price == max_price:
+        return formatted_min
+
+    return f"{formatted_min} - {_format_price(max_price, currency)}"
+
+
+def _first_offer_price(group: dict[str, Any]) -> float | None:
+    offers = group.get("offers")
+    if not isinstance(offers, list):
+        return None
+
+    for offer in offers:
+        if not isinstance(offer, dict):
+            continue
+        price = _number_or_none(offer.get("price"))
+        if price is not None:
+            return price
+
+    return None
+
+
+def _number_or_none(value: object) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def _format_price(value: float, currency: str) -> str:
+    suffix = "€" if currency == "EUR" else f" {currency}"
+    return f"{value:.2f}{suffix}"
+
+
+def _build_product_link(target_url: str, location: str, product_id: str) -> str:
+    parsed_url = urlparse(target_url)
+    if parsed_url.scheme and parsed_url.netloc:
+        base_url = urlunparse(parsed_url._replace(fragment="", query=""))
+    else:
+        base_url = IKEA_SECOND_HAND_PAGE_URL
+    return f"{base_url}#/{location}/{product_id}"
+
+
+def _api_group_search_text(group: dict[str, Any], price: str, link: str) -> str:
+    parts = [
+        str(group.get("title", "")),
+        str(group.get("description", "")),
+        price,
+        link,
+        " ".join(str(article) for article in group.get("articleNumbers", []) or []),
+    ]
+
+    offers = group.get("offers")
+    if isinstance(offers, list):
+        for offer in offers:
+            if not isinstance(offer, dict):
+                continue
+            parts.extend(
+                str(offer.get(key, ""))
+                for key in (
+                    "description",
+                    "additionalInfo",
+                    "productConditionTitle",
+                    "productConditionDescription",
+                    "reasonDiscount",
+                )
+            )
+
+    return _combine_text_parts(*parts)
+
+
+def _deduplicate_items(items: list[ProductListItem]) -> list[ProductListItem]:
+    seen = set()
+    deduplicated = []
+    for item in items:
+        if item.product_id in seen:
+            continue
+        seen.add(item.product_id)
+        deduplicated.append(item)
+    return deduplicated
+
+
+def _extract_items_from_dom(page: Any, location: str) -> list[ProductListItem]:
     raw_items = page.locator('a[href*="#/"]').evaluate_all(
         """
         (anchors, location) => {
@@ -260,6 +493,11 @@ def _extract_items_from_page(page: Any, location: str) -> list[ProductListItem]:
                 title=str(item["title"]).strip(),
                 price=str(item["price"]).strip(),
                 link=link,
+                list_text=_combine_text_parts(
+                    str(item["title"]).strip(),
+                    str(item["price"]).strip(),
+                    link,
+                ),
             )
         )
 
@@ -278,7 +516,7 @@ def _scrape_product_detail(
     logger: Logger,
     playwright_timeout_error: type[Exception],
 ) -> ScrapedProduct:
-    list_text = _combine_text_parts(item.title, item.price, item.link)
+    list_text = item.list_text or _combine_text_parts(item.title, item.price, item.link)
     detail_text = ""
     detail_error = None
 
