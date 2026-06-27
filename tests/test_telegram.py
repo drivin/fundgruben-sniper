@@ -35,14 +35,14 @@ def test_format_match_message_contains_required_fields():
         detail_text="",
         search_text="",
     )
-    match = ProductSearchResult(product, ("jalousie",))
+    match = ProductSearchResult(product, ("blind",))
 
     message = format_match_message(match)
 
-    assert "Titel: HOPPVALS" in message
-    assert "Preis: 14.99€" in message
+    assert "Title: HOPPVALS" in message
+    assert "Price: 14.99€" in message
     assert "Link: https://example.test/product" in message
-    assert "Suchworte: jalousie" in message
+    assert "Search terms: blind" in message
 
 
 def test_telegram_client_posts_to_send_message(monkeypatch):
@@ -56,11 +56,11 @@ def test_telegram_client_posts_to_send_message(monkeypatch):
 
     monkeypatch.setattr(telegram.request, "urlopen", fake_urlopen)
 
-    TelegramClient("TOKEN", "CHAT").send_message("Hallo")
+    TelegramClient("TOKEN", "CHAT").send_message("Hello")
 
     assert captured["url"].endswith("/botTOKEN/sendMessage")
     assert "chat_id=CHAT" in captured["data"]
-    assert "text=Hallo" in captured["data"]
+    assert "text=Hello" in captured["data"]
     assert captured["timeout"] == telegram.TELEGRAM_TIMEOUT_SECONDS
 
 
@@ -71,7 +71,7 @@ def test_telegram_client_raises_delivery_error_on_url_error(monkeypatch):
     monkeypatch.setattr(telegram.request, "urlopen", fake_urlopen)
 
     with pytest.raises(TelegramDeliveryError):
-        TelegramClient("TOKEN", "CHAT").send_message("Hallo")
+        TelegramClient("TOKEN", "CHAT").send_message("Hello")
 
 
 def test_telegram_client_includes_http_error_description(monkeypatch):
@@ -93,7 +93,7 @@ def test_telegram_client_includes_http_error_description(monkeypatch):
     monkeypatch.setattr(telegram.request, "urlopen", fake_urlopen)
 
     with pytest.raises(TelegramDeliveryError) as error:
-        TelegramClient("TOKEN", "CHAT").send_message("Hallo")
+        TelegramClient("TOKEN", "CHAT").send_message("Hello")
 
     assert "HTTP 400" in str(error.value)
     assert "Bad Request: chat not found" in str(error.value)

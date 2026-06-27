@@ -51,22 +51,22 @@ class ProductStatusStore:
                 raw_status = json.load(file)
         except OSError as error:
             raise StatusStoreError(
-                f"Statusdatei konnte nicht gelesen werden: {self._status_file}"
+                f"Status file could not be read: {self._status_file}"
             ) from error
         except json.JSONDecodeError as error:
             raise StatusStoreError(
-                f"Statusdatei enthaelt kein gueltiges JSON: {self._status_file}"
+                f"Status file does not contain valid JSON: {self._status_file}"
             ) from error
 
         if not isinstance(raw_status, dict):
             raise StatusStoreError(
-                "Statusdatei muss ein JSON-Objekt enthalten."
+                "Status file must contain a JSON object."
             )
 
         reported_product_ids = raw_status.get("reported_product_ids")
         if not isinstance(reported_product_ids, list):
             raise StatusStoreError(
-                "Statusdatei muss eine Liste `reported_product_ids` enthalten."
+                "Status file must contain a `reported_product_ids` list."
             )
 
         return ReportStatus(
@@ -91,7 +91,7 @@ class ProductStatusStore:
             temporary_status_file.replace(self._status_file)
         except OSError as error:
             raise StatusStoreError(
-                f"Statusdatei konnte nicht geschrieben werden: {self._status_file}"
+                f"Status file could not be written: {self._status_file}"
             ) from error
 
 

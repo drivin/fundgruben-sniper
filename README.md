@@ -1,6 +1,6 @@
-# Fundgruben Sniper
+# IKEA Second-Hand Sniper
 
-Fundgruben Sniper watches an IKEA Second-Hand location page and sends Telegram notifications when matching items appear.
+IKEA Second-Hand Sniper watches an IKEA Second-Hand location page and sends Telegram notifications when matching items appear.
 
 ## Disclaimer
 
@@ -39,7 +39,7 @@ Edit `.env`:
 
 ```env
 LOCATION=kassel
-SEARCH_TERMS=bett,sofa,tisch
+SEARCH_TERMS=bed,sofa,table
 CHECK_INTERVAL_SECONDS=300
 SCRAPE_PRODUCT_DETAILS=true
 TELEGRAM_BOT_TOKEN=

@@ -46,8 +46,8 @@ def test_filter_new_matches_removes_missing_ids_and_splits_duplicates():
     p2 = product("2")
     status = ReportStatus({"1", "9"})
     matches = [
-        ProductSearchResult(p1, ("eins",)),
-        ProductSearchResult(p2, ("zwei",)),
+        ProductSearchResult(p1, ("one",)),
+        ProductSearchResult(p2, ("two",)),
     ]
 
     result = filter_new_matches(matches, status, {"1", "2"})

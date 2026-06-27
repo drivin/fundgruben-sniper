@@ -8,9 +8,9 @@ from logging import Logger
 
 
 class ErrorComponent(Enum):
-    IKEA_FETCH = "IKEA-Abruf"
+    IKEA_FETCH = "IKEA fetch"
     SCRAPING = "Scraping"
-    TELEGRAM_DELIVERY = "Telegram-Versand"
+    TELEGRAM_DELIVERY = "Telegram delivery"
 
 
 @dataclass(frozen=True)
@@ -118,7 +118,7 @@ def create_error_report(
         error_type = error.__class__.__name__
     else:
         raise ValueError(
-            "component muss fuer generische Exceptions explizit gesetzt werden."
+            "component must be set explicitly for generic exceptions."
         )
 
     return ErrorReport(

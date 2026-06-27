@@ -47,7 +47,7 @@ def load_config(project_root: Path) -> AppConfig:
     telegram_chat_id = _required_value(values, "TELEGRAM_CHAT_ID", errors)
 
     if errors:
-        raise ConfigError("Ungueltige Konfiguration:\n- " + "\n- ".join(errors))
+        raise ConfigError("Invalid configuration:\n- " + "\n- ".join(errors))
 
     return AppConfig(
         location=location,
@@ -83,7 +83,7 @@ def _read_process_env() -> dict[str, str]:
 def _required_value(values: dict[str, str], key: str, errors: list[str]) -> str:
     value = values.get(key, "").strip()
     if not value:
-        errors.append(f"{key} muss gesetzt sein.")
+        errors.append(f"{key} must be set.")
     return value
 
 
@@ -94,7 +94,7 @@ def _parse_search_terms(raw_value: str, errors: list[str]) -> tuple[str, ...]:
         if term.strip()
     )
     if not terms:
-        errors.append("SEARCH_TERMS muss mindestens ein Suchwort enthalten.")
+        errors.append("SEARCH_TERMS must contain at least one search term.")
     return terms
 
 
@@ -106,11 +106,11 @@ def _parse_check_interval(raw_value: str, errors: list[str]) -> int:
     try:
         check_interval_seconds = int(value)
     except ValueError:
-        errors.append("CHECK_INTERVAL_SECONDS muss eine ganze Zahl sein.")
+        errors.append("CHECK_INTERVAL_SECONDS must be an integer.")
         return DEFAULT_CHECK_INTERVAL_SECONDS
 
     if check_interval_seconds <= 0:
-        errors.append("CHECK_INTERVAL_SECONDS muss groesser als 0 sein.")
+        errors.append("CHECK_INTERVAL_SECONDS must be greater than 0.")
         return DEFAULT_CHECK_INTERVAL_SECONDS
 
     return check_interval_seconds
@@ -132,5 +132,5 @@ def _parse_bool(
     if value in {"0", "false", "no", "n", "off"}:
         return False
 
-    errors.append(f"{key} muss true oder false sein.")
+    errors.append(f"{key} must be true or false.")
     return default

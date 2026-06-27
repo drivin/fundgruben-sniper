@@ -50,37 +50,37 @@ class TelegramClient:
         except error.HTTPError as exception:
             description = _read_http_error_description(exception)
             raise TelegramDeliveryError(
-                f"Telegram API antwortete mit HTTP {exception.code}: {description}"
+                f"Telegram API responded with HTTP {exception.code}: {description}"
             ) from exception
         except error.URLError as exception:
             raise TelegramDeliveryError(
-                f"Telegram API ist nicht erreichbar: {exception.reason}"
+                f"Telegram API is not reachable: {exception.reason}"
             ) from exception
         except TimeoutError as exception:
             raise TelegramDeliveryError(
-                "Telegram API hat nicht rechtzeitig geantwortet."
+                "Telegram API did not respond in time."
             ) from exception
         except json.JSONDecodeError as exception:
             raise TelegramDeliveryError(
-                "Telegram API lieferte keine gueltige JSON-Antwort."
+                "Telegram API returned an invalid JSON response."
             ) from exception
 
         if not response_payload.get("ok"):
-            description = response_payload.get("description", "Unbekannter Fehler")
+            description = response_payload.get("description", "Unknown error")
             raise TelegramDeliveryError(
-                f"Telegram API meldete einen Fehler: {description}"
+                f"Telegram API reported an error: {description}"
             )
 
 
 def format_match_message(match: ProductSearchResult) -> str:
     return "\n".join(
         [
-            "Neuer IKEA Second-Hand Treffer",
+            "New IKEA Second-Hand match",
             "",
-            f"Titel: {match.product.title}",
-            f"Preis: {match.product.price}",
+            f"Title: {match.product.title}",
+            f"Price: {match.product.price}",
             f"Link: {match.product.link}",
-            f"Suchworte: {', '.join(match.matched_terms)}",
+            f"Search terms: {', '.join(match.matched_terms)}",
         ]
     )
 
@@ -88,11 +88,11 @@ def format_match_message(match: ProductSearchResult) -> str:
 def format_error_report(report: ErrorReport) -> str:
     return "\n".join(
         [
-            "Fehler im IKEA Sniper",
+            "IKEA Sniper error",
             "",
-            f"Art: {report.error_type}",
-            f"Komponente: {report.component.value}",
-            f"Zeitpunkt: {report.occurred_at.isoformat(timespec='seconds')}",
+            f"Type: {report.error_type}",
+            f"Component: {report.component.value}",
+            f"Time: {report.occurred_at.isoformat(timespec='seconds')}",
             f"Details: {report.message}",
         ]
     )

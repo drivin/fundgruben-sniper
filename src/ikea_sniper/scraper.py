@@ -47,7 +47,7 @@ class ScrapedProduct:
 def extract_product_id(link: str) -> str:
     match = PRODUCT_ID_PATTERN.search(link)
     if match is None:
-        raise ScrapingError(f"Produkt-ID konnte nicht aus Link gelesen werden: {link}")
+        raise ScrapingError(f"Product ID could not be read from link: {link}")
     return match.group("product_id")
 
 
@@ -73,10 +73,10 @@ def scrape_product_list(target_url: str, location: str) -> list[ProductListItem]
         raise
     except PlaywrightTimeoutError as error:
         raise IkeaFetchError(
-            f"IKEA-Seite konnte nicht rechtzeitig geladen werden: {target_url}"
+            f"IKEA page did not load in time: {target_url}"
         ) from error
     except PlaywrightError as error:
-        raise IkeaFetchError(f"IKEA-Abruf ist fehlgeschlagen: {error}") from error
+        raise IkeaFetchError(f"IKEA fetch failed: {error}") from error
 
 
 def scrape_products_with_details(
@@ -122,10 +122,10 @@ def scrape_products_with_details(
         raise
     except PlaywrightTimeoutError as error:
         raise IkeaFetchError(
-            f"IKEA-Seite konnte nicht rechtzeitig geladen werden: {target_url}"
+            f"IKEA page did not load in time: {target_url}"
         ) from error
     except PlaywrightError as error:
-        raise IkeaFetchError(f"IKEA-Abruf ist fehlgeschlagen: {error}") from error
+        raise IkeaFetchError(f"IKEA fetch failed: {error}") from error
 
 
 def _load_playwright_api() -> dict[str, Any]:
@@ -135,7 +135,7 @@ def _load_playwright_api() -> dict[str, Any]:
         from playwright.sync_api import sync_playwright
     except ImportError as error:
         raise IkeaFetchError(
-            "Playwright ist nicht installiert. Fuehre `python -m pip install -e .` aus."
+            "Playwright is not installed. Run `python -m pip install -e .`."
         ) from error
 
     return {
@@ -193,7 +193,7 @@ def _extract_items_from_page(
         )
     except Exception as error:
         raise ScrapingError(
-            "Keine erwartbaren Artikellinks in der IKEA-Listenansicht gefunden."
+            "No expected product links found in the IKEA list view."
         ) from error
 
     api_items = _extract_items_from_grouped_search_api(page, location, target_url)
@@ -540,8 +540,8 @@ def _extract_items_from_dom(page: Any, location: str) -> list[ProductListItem]:
 
     if not items:
         raise ScrapingError(
-            "Artikellinks wurden gefunden, aber Titel, Preis oder Produkt-ID konnten "
-            "nicht vollstaendig extrahiert werden."
+            "Product links were found, but title, price, or product ID could not "
+            "be extracted completely."
         )
 
     return items
@@ -575,7 +575,7 @@ def _scrape_product_detail(
         detail_text = _extract_visible_text(page)
         if not detail_text:
             raise ScrapingError(
-                f"Detailseite enthaelt keinen sichtbaren Text: {item.link}"
+                f"Detail page does not contain visible text: {item.link}"
             )
     except Exception as error:
         detail_error = str(error)

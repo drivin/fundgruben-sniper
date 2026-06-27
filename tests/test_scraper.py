@@ -54,17 +54,17 @@ def test_items_from_grouped_search_payload_maps_api_groups_to_product_items():
             {
                 "articleNumbers": ["40518425"],
                 "title": "LILLEHEM",
-                "description": "Bein, 20 cm, Metall",
+                "description": "Leg, 20 cm, metal",
                 "currency": "EUR",
                 "minPrice": 6.49,
                 "maxPrice": 9.99,
                 "offers": [
                     {
                         "offerNumber": "856136850",
-                        "description": "Bein, 20 cm, Metall",
-                        "additionalInfo": "Originalverpackt",
-                        "productConditionTitle": "Brandneu",
-                        "reasonDiscount": "Kundenrueckgabe",
+                        "description": "Leg, 20 cm, metal",
+                        "additionalInfo": "Original packaging",
+                        "productConditionTitle": "Brand new",
+                        "reasonDiscount": "Customer return",
                     }
                 ],
             },
@@ -91,7 +91,7 @@ def test_items_from_grouped_search_payload_maps_api_groups_to_product_items():
     assert items[0].link == (
         "https://www.ikea.com/de/de/second-hand/buy-from-ikea/#/kassel/856136850"
     )
-    assert "Originalverpackt" in items[0].list_text
+    assert "Original packaging" in items[0].list_text
     assert "40518425" in items[0].list_text
 
 
@@ -102,10 +102,10 @@ def test_product_from_list_item_uses_list_text_without_detail_text():
             title="LILLEHEM",
             price="6.49€",
             link="https://example.test/#/kassel/856136850",
-            list_text="LILLEHEM Originalverpackt 6.49€",
+            list_text="LILLEHEM Original packaging 6.49€",
         )
     )
 
     assert product.product_id == "856136850"
     assert product.detail_text == ""
-    assert product.search_text == "LILLEHEM Originalverpackt 6.49€"
+    assert product.search_text == "LILLEHEM Original packaging 6.49€"

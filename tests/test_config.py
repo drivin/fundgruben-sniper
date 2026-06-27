@@ -28,7 +28,7 @@ def test_load_config_reads_and_normalizes_values(tmp_path):
         "\n".join(
             [
                 "LOCATION=kassel",
-                "SEARCH_TERMS=Bett, sofa ,TISCH",
+                "SEARCH_TERMS=Bed, sofa ,TABLE",
                 "CHECK_INTERVAL_SECONDS=120",
                 "TELEGRAM_BOT_TOKEN=token",
                 "TELEGRAM_CHAT_ID=chat",
@@ -39,7 +39,7 @@ def test_load_config_reads_and_normalizes_values(tmp_path):
     config = load_config(tmp_path)
 
     assert config.location == "kassel"
-    assert config.search_terms == ("bett", "sofa", "tisch")
+    assert config.search_terms == ("bed", "sofa", "table")
     assert config.check_interval_seconds == 120
     assert config.scrape_product_details is True
     assert config.telegram_bot_token == "token"
@@ -56,7 +56,7 @@ def test_load_config_uses_default_check_interval(tmp_path):
         "\n".join(
             [
                 "LOCATION=kassel",
-                "SEARCH_TERMS=bett",
+                "SEARCH_TERMS=bed",
                 "TELEGRAM_BOT_TOKEN=token",
                 "TELEGRAM_CHAT_ID=chat",
             ]
@@ -72,7 +72,7 @@ def test_load_config_can_disable_product_detail_scraping(tmp_path):
         "\n".join(
             [
                 "LOCATION=kassel",
-                "SEARCH_TERMS=bett",
+                "SEARCH_TERMS=bed",
                 "SCRAPE_PRODUCT_DETAILS=false",
                 "TELEGRAM_BOT_TOKEN=token",
                 "TELEGRAM_CHAT_ID=chat",
@@ -90,11 +90,11 @@ def test_load_config_rejects_missing_required_values(tmp_path):
         load_config(tmp_path)
 
     message = str(error.value)
-    assert "LOCATION muss gesetzt sein." in message
-    assert "SEARCH_TERMS muss mindestens ein Suchwort enthalten." in message
-    assert "TELEGRAM_BOT_TOKEN muss gesetzt sein." in message
-    assert "TELEGRAM_CHAT_ID muss gesetzt sein." in message
-    assert "CHECK_INTERVAL_SECONDS muss groesser als 0 sein." in message
+    assert "LOCATION must be set." in message
+    assert "SEARCH_TERMS must contain at least one search term." in message
+    assert "TELEGRAM_BOT_TOKEN must be set." in message
+    assert "TELEGRAM_CHAT_ID must be set." in message
+    assert "CHECK_INTERVAL_SECONDS must be greater than 0." in message
 
 
 def test_load_config_rejects_invalid_product_detail_scraping_value(tmp_path):
@@ -103,7 +103,7 @@ def test_load_config_rejects_invalid_product_detail_scraping_value(tmp_path):
         "\n".join(
             [
                 "LOCATION=kassel",
-                "SEARCH_TERMS=bett",
+                "SEARCH_TERMS=bed",
                 "SCRAPE_PRODUCT_DETAILS=maybe",
                 "TELEGRAM_BOT_TOKEN=token",
                 "TELEGRAM_CHAT_ID=chat",
@@ -114,7 +114,7 @@ def test_load_config_rejects_invalid_product_detail_scraping_value(tmp_path):
     with pytest.raises(ConfigError) as error:
         load_config(tmp_path)
 
-    assert "SCRAPE_PRODUCT_DETAILS muss true oder false sein." in str(error.value)
+    assert "SCRAPE_PRODUCT_DETAILS must be true or false." in str(error.value)
 
 
 def test_process_environment_overrides_dotenv_values(tmp_path, monkeypatch):
@@ -123,7 +123,7 @@ def test_process_environment_overrides_dotenv_values(tmp_path, monkeypatch):
         "\n".join(
             [
                 "LOCATION=kassel",
-                "SEARCH_TERMS=bett",
+                "SEARCH_TERMS=bed",
                 "CHECK_INTERVAL_SECONDS=300",
                 "TELEGRAM_BOT_TOKEN=env-file-token",
                 "TELEGRAM_CHAT_ID=env-file-chat",
@@ -131,7 +131,7 @@ def test_process_environment_overrides_dotenv_values(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setenv("LOCATION", "hamburg")
-    monkeypatch.setenv("SEARCH_TERMS", "stuhl,regal")
+    monkeypatch.setenv("SEARCH_TERMS", "chair,shelf")
     monkeypatch.setenv("CHECK_INTERVAL_SECONDS", "60")
     monkeypatch.setenv("SCRAPE_PRODUCT_DETAILS", "false")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "process-token")
@@ -140,7 +140,7 @@ def test_process_environment_overrides_dotenv_values(tmp_path, monkeypatch):
     config = load_config(tmp_path)
 
     assert config.location == "hamburg"
-    assert config.search_terms == ("stuhl", "regal")
+    assert config.search_terms == ("chair", "shelf")
     assert config.check_interval_seconds == 60
     assert config.scrape_product_details is False
     assert config.telegram_bot_token == "process-token"
