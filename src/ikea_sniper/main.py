@@ -54,6 +54,7 @@ def main() -> None:
     LOGGER.info("Location: %s", config.location)
     LOGGER.info("Search terms: %s", ", ".join(config.search_terms))
     LOGGER.info("Check interval seconds: %s", config.check_interval_seconds)
+    LOGGER.info("Scrape product details: %s", config.scrape_product_details)
     LOGGER.info("Target URL: %s", config.target_url)
 
     telegram_client = TelegramClient(
@@ -95,6 +96,7 @@ def run_check(config: AppConfig, telegram_client: TelegramClient) -> None:
             config.target_url,
             config.location,
             LOGGER,
+            scrape_product_details=config.scrape_product_details,
         )
     except Exception as error:
         reporter.report(error, ErrorComponent.SCRAPING)

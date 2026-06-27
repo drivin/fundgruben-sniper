@@ -6,7 +6,9 @@ from ikea_sniper.errors import ScrapingError
 from ikea_sniper.scraper import (
     _build_api_page_url,
     _items_from_grouped_search_payload,
+    _product_from_list_item,
     extract_product_id,
+    ProductListItem,
 )
 
 
@@ -91,3 +93,19 @@ def test_items_from_grouped_search_payload_maps_api_groups_to_product_items():
     )
     assert "Originalverpackt" in items[0].list_text
     assert "40518425" in items[0].list_text
+
+
+def test_product_from_list_item_uses_list_text_without_detail_text():
+    product = _product_from_list_item(
+        ProductListItem(
+            product_id="856136850",
+            title="LILLEHEM",
+            price="6.49€",
+            link="https://example.test/#/kassel/856136850",
+            list_text="LILLEHEM Originalverpackt 6.49€",
+        )
+    )
+
+    assert product.product_id == "856136850"
+    assert product.detail_text == ""
+    assert product.search_text == "LILLEHEM Originalverpackt 6.49€"

@@ -14,6 +14,13 @@ SCRAPE_TIMEOUT_MS = 30_000
 NETWORK_IDLE_TIMEOUT_MS = 10_000
 DETAIL_READY_TIMEOUT_MS = 10_000
 IKEA_SECOND_HAND_PAGE_URL = "https://www.ikea.com/de/de/second-hand/buy-from-ikea/"
+BLOCKED_RESOURCE_TYPES = {"font", "image", "media", "stylesheet"}
+BROWSER_LAUNCH_ARGS = (
+    "--blink-settings=imagesEnabled=false",
+    "--disable-background-networking",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+)
 
 
 @dataclass(frozen=True)
@@ -52,9 +59,12 @@ def scrape_product_list(target_url: str, location: str) -> list[ProductListItem]
 
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = playwright.chromium.launch(
+                headless=True,
+                args=list(BROWSER_LAUNCH_ARGS),
+            )
             try:
-                page = browser.new_page()
+                page = _new_optimized_page(browser)
                 _open_page(page, target_url, PlaywrightTimeoutError)
                 return _extract_items_from_page(page, location, target_url)
             finally:
@@ -73,6 +83,8 @@ def scrape_products_with_details(
     target_url: str,
     location: str,
     logger: Logger,
+    *,
+    scrape_product_details: bool = True,
 ) -> list[ScrapedProduct]:
     playwright_api = _load_playwright_api()
     sync_playwright = playwright_api["sync_playwright"]
@@ -81,11 +93,17 @@ def scrape_products_with_details(
 
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = playwright.chromium.launch(
+                headless=True,
+                args=list(BROWSER_LAUNCH_ARGS),
+            )
             try:
-                page = browser.new_page()
+                page = _new_optimized_page(browser)
                 _open_page(page, target_url, PlaywrightTimeoutError)
                 list_items = _extract_items_from_page(page, location, target_url)
+
+                if not scrape_product_details:
+                    return [_product_from_list_item(item) for item in list_items]
 
                 products = []
                 for item in list_items:
@@ -125,6 +143,25 @@ def _load_playwright_api() -> dict[str, Any]:
         "PlaywrightError": PlaywrightError,
         "PlaywrightTimeoutError": PlaywrightTimeoutError,
     }
+
+
+def _new_optimized_page(browser: Any) -> Any:
+    context = browser.new_context(
+        device_scale_factor=1,
+        reduced_motion="reduce",
+        viewport={"width": 1280, "height": 720},
+    )
+    page = context.new_page()
+    page.route("**/*", _route_request)
+    return page
+
+
+def _route_request(route: Any) -> None:
+    if route.request.resource_type in BLOCKED_RESOURCE_TYPES:
+        route.abort()
+        return
+
+    route.continue_()
 
 
 def _open_page(page: Any, url: str, playwright_timeout_error: type[Exception]) -> None:
@@ -559,6 +596,19 @@ def _scrape_product_detail(
         detail_text=detail_text,
         search_text=_combine_text_parts(list_text, detail_text),
         detail_error=detail_error,
+    )
+
+
+def _product_from_list_item(item: ProductListItem) -> ScrapedProduct:
+    list_text = item.list_text or _combine_text_parts(item.title, item.price, item.link)
+    return ScrapedProduct(
+        product_id=item.product_id,
+        title=item.title,
+        price=item.price,
+        link=item.link,
+        list_text=list_text,
+        detail_text="",
+        search_text=list_text,
     )
 
 

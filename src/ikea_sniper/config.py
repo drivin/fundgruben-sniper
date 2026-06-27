@@ -16,6 +16,7 @@ class AppConfig:
     location: str
     search_terms: tuple[str, ...]
     check_interval_seconds: int
+    scrape_product_details: bool
     telegram_bot_token: str
     telegram_chat_id: str
     target_url: str
@@ -36,6 +37,12 @@ def load_config(project_root: Path) -> AppConfig:
         values.get("CHECK_INTERVAL_SECONDS", ""),
         errors,
     )
+    scrape_product_details = _parse_bool(
+        values.get("SCRAPE_PRODUCT_DETAILS", ""),
+        default=True,
+        key="SCRAPE_PRODUCT_DETAILS",
+        errors=errors,
+    )
     telegram_bot_token = _required_value(values, "TELEGRAM_BOT_TOKEN", errors)
     telegram_chat_id = _required_value(values, "TELEGRAM_CHAT_ID", errors)
 
@@ -46,6 +53,7 @@ def load_config(project_root: Path) -> AppConfig:
         location=location,
         search_terms=search_terms,
         check_interval_seconds=check_interval_seconds,
+        scrape_product_details=scrape_product_details,
         telegram_bot_token=telegram_bot_token,
         telegram_chat_id=telegram_chat_id,
         target_url=f"{IKEA_SECOND_HAND_BASE_URL}/{location}",
@@ -61,6 +69,7 @@ def _read_process_env() -> dict[str, str]:
         "LOCATION",
         "SEARCH_TERMS",
         "CHECK_INTERVAL_SECONDS",
+        "SCRAPE_PRODUCT_DETAILS",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
     )
@@ -105,3 +114,23 @@ def _parse_check_interval(raw_value: str, errors: list[str]) -> int:
         return DEFAULT_CHECK_INTERVAL_SECONDS
 
     return check_interval_seconds
+
+
+def _parse_bool(
+    raw_value: str,
+    *,
+    default: bool,
+    key: str,
+    errors: list[str],
+) -> bool:
+    value = raw_value.strip().casefold()
+    if not value:
+        return default
+
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+
+    errors.append(f"{key} muss true oder false sein.")
+    return default

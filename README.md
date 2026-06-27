@@ -41,6 +41,7 @@ Edit `.env`:
 LOCATION=kassel
 SEARCH_TERMS=bett,sofa,tisch
 CHECK_INTERVAL_SECONDS=300
+SCRAPE_PRODUCT_DETAILS=true
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 ```
@@ -96,6 +97,9 @@ docker compose down
 - `LOCATION`: IKEA Second-Hand location slug, for example `kassel`
 - `SEARCH_TERMS`: comma-separated search terms
 - `CHECK_INTERVAL_SECONDS`: polling interval in seconds, defaults to `300`
+- `SCRAPE_PRODUCT_DETAILS`: set to `false` to avoid opening every product detail
+  page. This significantly reduces browser CPU usage, but searches only list/API
+  text and can miss terms that appear exclusively on detail pages.
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token
 - `TELEGRAM_CHAT_ID`: Telegram target chat ID
 
