@@ -9,6 +9,7 @@ from ikea_sniper.search import ProductSearchResult
 
 TELEGRAM_API_BASE_URL = "https://api.telegram.org"
 TELEGRAM_MESSAGE_LIMIT = 4096
+TELEGRAM_CAPTION_LIMIT = 1024
 TELEGRAM_TIMEOUT_SECONDS = 15
 
 
@@ -18,27 +19,45 @@ class TelegramClient:
         self._chat_id = chat_id
 
     def send_match(self, match: ProductSearchResult) -> None:
-        self.send_message(format_match_message(match))
+        message = format_match_message(match)
+        if match.product.image_url:
+            try:
+                self.send_photo(match.product.image_url, message)
+            except TelegramDeliveryError:
+                self.send_message(message)
+            return
+
+        self.send_message(message)
 
     def send_error_report(self, report: ErrorReport) -> None:
         self.send_message(format_error_report(report))
 
     def send_message(self, text: str) -> None:
-        payload = parse.urlencode(
+        self._send_api_request(
+            "sendMessage",
             {
-                "chat_id": self._chat_id,
-                "text": _limit_message(text),
+                "text": _limit_text(text, TELEGRAM_MESSAGE_LIMIT),
                 "disable_web_page_preview": "false",
-            }
-        ).encode("utf-8")
-        url = f"{TELEGRAM_API_BASE_URL}/bot{self._bot_token}/sendMessage"
+            },
+        )
+
+    def send_photo(self, photo_url: str, caption: str) -> None:
+        self._send_api_request(
+            "sendPhoto",
+            {
+                "photo": photo_url,
+                "caption": _limit_text(caption, TELEGRAM_CAPTION_LIMIT),
+            },
+        )
+
+    def _send_api_request(self, method_name: str, values: dict[str, str]) -> None:
+        payload = parse.urlencode({"chat_id": self._chat_id, **values}).encode("utf-8")
+        url = f"{TELEGRAM_API_BASE_URL}/bot{self._bot_token}/{method_name}"
         telegram_request = request.Request(
             url,
             data=payload,
             method="POST",
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
         try:
@@ -98,10 +117,10 @@ def format_error_report(report: ErrorReport) -> str:
     )
 
 
-def _limit_message(text: str) -> str:
-    if len(text) <= TELEGRAM_MESSAGE_LIMIT:
+def _limit_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
         return text
-    return text[: TELEGRAM_MESSAGE_LIMIT - 3] + "..."
+    return text[: limit - 3] + "..."
 
 
 def _read_http_error_description(exception: error.HTTPError) -> str:

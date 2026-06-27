@@ -30,6 +30,7 @@ class ProductListItem:
     price: str
     link: str
     list_text: str = ""
+    image_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class ScrapedProduct:
     list_text: str
     detail_text: str
     search_text: str
+    image_url: str = ""
     detail_error: str | None = None
 
 
@@ -253,10 +255,10 @@ def _find_grouped_search_url(page: Any) -> str:
 def _get_json(page: Any, url: str) -> dict[str, Any]:
     response = page.request.get(url)
     if not response.ok:
-        raise ScrapingError(f"IKEA-API antwortete mit HTTP {response.status}: {url}")
+        raise ScrapingError(f"IKEA API responded with HTTP {response.status}: {url}")
     payload = response.json()
     if not isinstance(payload, dict):
-        raise ScrapingError(f"IKEA-API lieferte kein JSON-Objekt: {url}")
+        raise ScrapingError(f"IKEA API returned a non-object JSON payload: {url}")
     return payload
 
 
@@ -289,6 +291,7 @@ def _items_from_grouped_search_payload(
         title = _normalize_text(str(group.get("title", "")))
         price = _format_group_price(group)
         link = _build_product_link(target_url, location, product_id)
+        image_url = _first_image_url(group)
         list_text = _api_group_search_text(group, price, link)
 
         item = {
@@ -306,6 +309,7 @@ def _items_from_grouped_search_payload(
                 price=price,
                 link=link,
                 list_text=list_text,
+                image_url=image_url,
             )
         )
 
@@ -410,6 +414,59 @@ def _api_group_search_text(group: dict[str, Any], price: str, link: str) -> str:
     return _combine_text_parts(*parts)
 
 
+def _first_image_url(value: object) -> str:
+    for image_url in _iter_image_urls(value):
+        return image_url
+    return ""
+
+
+def _iter_image_urls(value: object, *, key_path: tuple[str, ...] = ()) -> list[str]:
+    if isinstance(value, dict):
+        urls = []
+        for key, child_value in value.items():
+            child_path = (*key_path, str(key).casefold())
+            urls.extend(_iter_image_urls(child_value, key_path=child_path))
+        return urls
+
+    if isinstance(value, list):
+        urls = []
+        for child_value in value:
+            urls.extend(_iter_image_urls(child_value, key_path=key_path))
+        return urls
+
+    if not isinstance(value, str):
+        return []
+
+    if not _looks_like_image_field(key_path):
+        return []
+
+    image_url = _normalize_image_url(value)
+    if not image_url:
+        return []
+
+    return [image_url]
+
+
+def _looks_like_image_field(key_path: tuple[str, ...]) -> bool:
+    return any(
+        token in key
+        for key in key_path
+        for token in ("image", "photo", "thumbnail", "picture")
+    )
+
+
+def _normalize_image_url(value: str) -> str:
+    image_url = value.strip()
+    if image_url.startswith("//"):
+        image_url = f"https:{image_url}"
+
+    parsed_url = urlparse(image_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        return ""
+
+    return image_url
+
+
 def _deduplicate_items(items: list[ProductListItem]) -> list[ProductListItem]:
     seen = set()
     deduplicated = []
@@ -490,6 +547,34 @@ def _extract_items_from_dom(page: Any, location: str) -> list[ProductListItem]:
                 return '';
             }
 
+            function firstImageUrl(card) {
+                const image = card.querySelector('img');
+                if (!image) {
+                    return '';
+                }
+
+                const candidates = [
+                    image.currentSrc,
+                    image.src,
+                    image.getAttribute('data-src'),
+                    image.getAttribute('data-srcset'),
+                    image.getAttribute('srcset'),
+                ];
+
+                for (const candidate of candidates) {
+                    if (!candidate) {
+                        continue;
+                    }
+                    const firstCandidate = String(candidate).split(',')[0].trim().split(/\\s+/)[0];
+                    if (!firstCandidate) {
+                        continue;
+                    }
+                    return new URL(firstCandidate, document.baseURI).href;
+                }
+
+                return '';
+            }
+
             return anchors.flatMap((anchor) => {
                 const link = anchor.href;
                 if (!link.includes(locationPath) || seen.has(link)) {
@@ -501,11 +586,13 @@ def _extract_items_from_dom(page: Any, location: str) -> list[ProductListItem]:
                 const cardText = card.innerText || card.textContent || '';
                 const price = findPrice(card, cardText);
                 const title = findTitle(anchor, cardText, price);
+                const imageUrl = firstImageUrl(card);
 
                 return [{
                     title,
                     price,
                     link,
+                    imageUrl,
                 }];
             });
         }
@@ -535,6 +622,7 @@ def _extract_items_from_dom(page: Any, location: str) -> list[ProductListItem]:
                     str(item["price"]).strip(),
                     link,
                 ),
+                image_url=str(item.get("imageUrl", "")).strip(),
             )
         )
 
@@ -595,6 +683,7 @@ def _scrape_product_detail(
         list_text=list_text,
         detail_text=detail_text,
         search_text=_combine_text_parts(list_text, detail_text),
+        image_url=item.image_url,
         detail_error=detail_error,
     )
 
@@ -609,6 +698,7 @@ def _product_from_list_item(item: ProductListItem) -> ScrapedProduct:
         list_text=list_text,
         detail_text="",
         search_text=list_text,
+        image_url=item.image_url,
     )
 
 
