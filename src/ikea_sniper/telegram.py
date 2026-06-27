@@ -18,19 +18,29 @@ class TelegramClient:
         self._chat_id = chat_id
 
     def send_match(self, match: ProductSearchResult) -> None:
-        self.send_message(format_match_message(match))
+        self.send_message(
+            format_match_message(match),
+            link_preview_url=match.product.image_url or None,
+        )
 
     def send_error_report(self, report: ErrorReport) -> None:
         self.send_message(format_error_report(report))
 
-    def send_message(self, text: str) -> None:
-        payload = parse.urlencode(
-            {
-                "chat_id": self._chat_id,
-                "text": _limit_message(text),
-                "disable_web_page_preview": "false",
-            }
-        ).encode("utf-8")
+    def send_message(self, text: str, link_preview_url: str | None = None) -> None:
+        payload_values = {
+            "chat_id": self._chat_id,
+            "text": _limit_message(text),
+        }
+        if link_preview_url:
+            payload_values["link_preview_options"] = json.dumps(
+                {
+                    "url": link_preview_url,
+                }
+            )
+        else:
+            payload_values["disable_web_page_preview"] = "false"
+
+        payload = parse.urlencode(payload_values).encode("utf-8")
         url = f"{TELEGRAM_API_BASE_URL}/bot{self._bot_token}/sendMessage"
         telegram_request = request.Request(
             url,

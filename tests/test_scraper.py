@@ -5,6 +5,7 @@ import pytest
 from ikea_sniper.errors import ScrapingError
 from ikea_sniper.scraper import (
     _build_api_page_url,
+    _first_image_url,
     _items_from_grouped_search_payload,
     _product_from_list_item,
     extract_product_id,
@@ -63,6 +64,7 @@ def test_items_from_grouped_search_payload_maps_api_groups_to_product_items():
                         "offerNumber": "856136850",
                         "description": "Leg, 20 cm, metal",
                         "additionalInfo": "Original packaging",
+                        "imageUrl": "https://example.test/product.jpg",
                         "productConditionTitle": "Brand new",
                         "reasonDiscount": "Customer return",
                     }
@@ -91,6 +93,7 @@ def test_items_from_grouped_search_payload_maps_api_groups_to_product_items():
     assert items[0].link == (
         "https://www.ikea.com/de/de/second-hand/buy-from-ikea/#/kassel/856136850"
     )
+    assert items[0].image_url == "https://example.test/product.jpg"
     assert "Original packaging" in items[0].list_text
     assert "40518425" in items[0].list_text
 
@@ -103,9 +106,27 @@ def test_product_from_list_item_uses_list_text_without_detail_text():
             price="6.49€",
             link="https://example.test/#/kassel/856136850",
             list_text="LILLEHEM Original packaging 6.49€",
+            image_url="https://example.test/product.jpg",
         )
     )
 
     assert product.product_id == "856136850"
     assert product.detail_text == ""
     assert product.search_text == "LILLEHEM Original packaging 6.49€"
+    assert product.image_url == "https://example.test/product.jpg"
+
+
+def test_first_image_url_finds_nested_image_fields():
+    image_url = _first_image_url(
+        {
+            "offers": [
+                {
+                    "media": {
+                        "thumbnailUrl": "//example.test/thumbnail.jpg",
+                    }
+                }
+            ]
+        }
+    )
+
+    assert image_url == "https://example.test/thumbnail.jpg"

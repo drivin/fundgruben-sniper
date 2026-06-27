@@ -4,6 +4,7 @@ import json
 from io import BytesIO
 from urllib.error import HTTPError
 from urllib.error import URLError
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -61,6 +62,40 @@ def test_telegram_client_posts_to_send_message(monkeypatch):
     assert captured["url"].endswith("/botTOKEN/sendMessage")
     assert "chat_id=CHAT" in captured["data"]
     assert "text=Hello" in captured["data"]
+    assert captured["timeout"] == telegram.TELEGRAM_TIMEOUT_SECONDS
+
+
+def test_telegram_client_uses_image_url_as_link_preview_url(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["data"] = parse_qs(request.data.decode("utf-8"))
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    product = ScrapedProduct(
+        product_id="1",
+        title="HOPPVALS",
+        price="14.99€",
+        link="https://example.test/product",
+        list_text="",
+        detail_text="",
+        search_text="",
+        image_url="https://example.test/product.jpg",
+    )
+    match = ProductSearchResult(product, ("blind",))
+
+    monkeypatch.setattr(telegram.request, "urlopen", fake_urlopen)
+
+    TelegramClient("TOKEN", "CHAT").send_match(match)
+
+    preview_options = json.loads(captured["data"]["link_preview_options"][0])
+
+    assert captured["url"].endswith("/botTOKEN/sendMessage")
+    assert captured["data"]["chat_id"] == ["CHAT"]
+    assert preview_options == {"url": "https://example.test/product.jpg"}
+    assert "Title: HOPPVALS" in captured["data"]["text"][0]
     assert captured["timeout"] == telegram.TELEGRAM_TIMEOUT_SECONDS
 
 
